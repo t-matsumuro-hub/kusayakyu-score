@@ -1,8 +1,13 @@
 /* 草野球スコア - Service Worker
-   球場は電波が悪いことが多いため、アプリ本体は必ずキャッシュから即座に返す（cache-first）。
-   更新は裏で取得しておき、次回起動時に反映する（stale-while-revalidate）。 */
+   球場は電波が悪く、モバイル通信量も気になるため、
+   キャッシュにあるものは「一切通信せずに」返す（cache-only）。
+   毎回裏で取得し直す作り（stale-while-revalidate）にすると、
+   起動のたびに全ファイルぶんの通信が発生してしまうため採用しない。
 
-const VERSION = 'v2.1.1';
+   更新は VERSION を上げた sw.js が配信されたときにだけ行う。
+   ブラウザは起動時に sw.js だけを確認する（数百バイト程度）。 */
+
+const VERSION = 'v2.2.0';
 const CACHE = `bbscore-${VERSION}`;
 
 const SHELL = [
@@ -56,22 +61,24 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(req, { ignoreSearch: true });
 
-    const network = fetch(req).then((res) => {
+    // キャッシュにあれば通信しない
+    const cached = await cache.match(req, { ignoreSearch: true });
+    if (cached) return cached;
+
+    // 未キャッシュのものだけ取りに行き、取れたら次回のために保存する
+    try {
+      const res = await fetch(req);
       if (res && res.status === 200 && res.type === 'basic') cache.put(req, res.clone());
       return res;
-    }).catch(() => null);
-
-    if (cached) return cached;
-    const res = await network;
-    if (res) return res;
-    // オフラインかつ未キャッシュ：ナビゲーションなら index を返す
-    if (req.mode === 'navigate') {
-      const fallback = await cache.match('./index.html');
-      if (fallback) return fallback;
+    } catch {
+      // オフラインかつ未キャッシュ：ナビゲーションなら index を返す
+      if (req.mode === 'navigate') {
+        const fallback = await cache.match('./index.html');
+        if (fallback) return fallback;
+      }
+      return new Response('オフラインです', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     }
-    return new Response('オフラインです', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   })());
 });
 

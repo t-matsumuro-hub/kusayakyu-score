@@ -109,9 +109,17 @@ export default {
       </div>
 
       <h2 class="section">このアプリについて</h2>
-      <div class="card card-pad small muted">
-        草野球スコア v1.0.0<br>
-        データはこの端末の中だけに保存され、外部には送信されません。
+      <div class="card card-pad">
+        <div class="small muted">
+          草野球スコア v2.2.0<br>
+          データはこの端末の中だけに保存され、外部には送信されません。<br>
+          ホーム画面に追加すれば、通信が無くても動作します。
+        </div>
+        <button class="btn btn-block" style="margin-top:10px" data-update>更新を確認</button>
+        <p class="tiny muted" style="margin:6px 0 0">
+          通信量を抑えるため、更新は自動では取りに行きません。
+          Wi-Fi のときにこのボタンで確認してください（更新があれば約150KB）。
+        </p>
       </div>
 
       <h2 class="section">危険な操作</h2>
@@ -142,6 +150,20 @@ export default {
 
     on(view, 'click', '[data-edit-basic]', () => editBasic());
     on(view, 'click', '[data-edit-qual]', () => editQual());
+    on(view, 'click', '[data-update]', async () => {
+      toast('確認しています…');
+      try {
+        const { checkForUpdate } = await import('../app.js');
+        const r = await checkForUpdate();
+        if (!r.supported) { toast('この環境では更新確認ができません', { danger: true }); return; }
+        if (!r.updated) { toast('最新版です'); return; }
+        await alertSheet('新しい版に更新しました。画面を読み込み直します。', { title: '更新完了' });
+        location.reload();
+      } catch {
+        toast('更新の確認に失敗しました', { danger: true });
+      }
+    });
+
     on(view, 'click', '[data-edit-era]', () => editEra());
     on(view, 'click', '[data-edit-misc]', () => editMisc());
 

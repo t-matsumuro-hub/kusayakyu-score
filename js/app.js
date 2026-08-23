@@ -104,9 +104,35 @@ function registerSW() {
     return;
   }
 
-  navigator.serviceWorker.register('./sw.js').catch(() => {
+  // updateViaCache:'all' で sw.js 自体もブラウザのキャッシュに従わせる。
+  // 起動のたびに sw.js を取りに行かなくなり、モバイル通信量を抑えられる。
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'all' }).catch(() => {
     // オフライン対応が効かないだけなので、失敗しても続行する
   });
+}
+
+/**
+ * 手動で更新を確認する。
+ * 通信量を抑えるため自動では取りに行かないので、
+ * Wi-Fi のときに設定画面から実行してもらう想定。
+ */
+export async function checkForUpdate() {
+  if (!('serviceWorker' in navigator)) return { supported: false };
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return { supported: false };
+  await reg.update();
+  // 新しい版が待機していれば、それに切り替えて再読み込みする
+  const waiting = reg.waiting || reg.installing;
+  if (!waiting) return { supported: true, updated: false };
+  await new Promise((resolve) => {
+    if (waiting.state === 'installed') return resolve();
+    waiting.addEventListener('statechange', () => {
+      if (waiting.state === 'installed' || waiting.state === 'activated') resolve();
+    });
+    setTimeout(resolve, 8000);
+  });
+  waiting.postMessage('skipWaiting');
+  return { supported: true, updated: true };
 }
 
 /* ---------------- 想定外のエラーを握りつぶさず知らせる ---------------- */

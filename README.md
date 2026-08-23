@@ -158,7 +158,22 @@ N は「実際に打席に立った人数」。打順は次の打者を先回り
 | 盗塁死 | 盗塁死に加算＋アウト |
 | 走塁死 | 加算しない＋アウト |
 
-## iPhone で使えるようにする
+## 公開URL
+
+**https://t-matsumuro-hub.github.io/kusayakyu-score/**
+
+Safari でこの URL を開き、共有ボタン →「ホーム画面に追加」でアプリとして使える。
+
+コードを変更したあとは push すれば数分で反映される。
+
+```bash
+git -C C:/Users/tmats/baseball-score push
+```
+
+> 更新を配信するときは `sw.js` の `VERSION` を上げること。
+> 上げないと、既にホーム画面に追加した端末が古いキャッシュを使い続ける。
+
+## iPhone で使えるようにする（他のリポジトリで一から行う場合）
 
 Service Worker（オフライン動作）には HTTPS が必要なため、どこかに置く必要がある。
 どれも無料。**GitHub Pages** が最も安定している。

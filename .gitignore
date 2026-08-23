@@ -1,0 +1,17 @@
+# OS / エディタが作る不要ファイル
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# Python（アイコン生成・開発サーバ用スクリプト）
+__pycache__/
+*.pyc
+
+# 動作確認で書き出したバックアップや成績表を誤ってコミットしないように
+*.log
+bbscore-backup-*.json
+bbscore-game-*.json
+成績表-*.html

@@ -15,8 +15,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class NoCacheHandler(SimpleHTTPRequestHandler):
+    # HTTP/1.0 のままだと応答ごとに接続が切れ、
+    # Service Worker のスクリプト取得が失敗することがある
+    protocol_version = "HTTP/1.1"
+
     def end_headers(self):
-        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        # Service Worker のスクリプトに no-store が付くと Chrome が登録を拒否するため、
+        # sw.js だけは「毎回確認するが保存は許す」ヘッダにする
+        if self.path.split("?")[0].endswith("sw.js"):
+            self.send_header("Cache-Control", "no-cache, must-revalidate, max-age=0")
+        else:
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()

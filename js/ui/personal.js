@@ -22,7 +22,7 @@ import {
   personalBatting, personalPitching, aggregatePersonal, personalSeasons,
   rates, fmtRate, formatIP, pitchRates, fmtNum, summarizeLine, LEGACY_FIELDS
 } from '../stats.js';
-import { go, rerender, back } from './router.js';
+import { go, rerender, back, backTo } from './router.js';
 
 /* ---------------- 選手の選択 ---------------- */
 
@@ -294,8 +294,22 @@ export const personalGameScreen = {
 
       ${rec.memo ? html`<h2 class="section">メモ</h2><div class="card card-pad small">${rec.memo}</div>` : ''}
 
+      <button class="btn btn-primary btn-block" style="margin-top:20px" data-done>
+        入力完了（一覧に戻る）
+      </button>
+      <p class="tiny muted center" style="margin:6px 0 0">
+        入力した内容は自動で保存されています。
+      </p>
+
       <button class="btn btn-danger btn-block" style="margin-top:18px" data-delete>この記録を削除</button>
     `);
+
+    on(view, 'click', '[data-done]', async () => {
+      toast('保存しました');
+      // 履歴に一覧が無い場合（直接開いた場合）でも一覧へ移動する
+      const moved = await backTo('personal');
+      if (!moved) go('personal', {}, { resetTo: true });
+    });
 
     on(view, 'click', '[data-add-pa]', () => editPA(rec, null));
     on(view, 'click', '[data-pa]', (e, b) => editPA(rec, b.dataset.pa));

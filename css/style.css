@@ -176,9 +176,30 @@ button.row:active { background: var(--surface-2); }
   width: 100%; min-height: 42px; padding: 8px 10px;
   background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px;
+  /* flex の中で縮めるために必要。既定の min-width:auto だと
+     固有幅を持つ入力（日付・時刻）が縮まず枠から溢れる */
+  min-width: 0;
+  max-width: 100%;
 }
-.field-row { display: flex; gap: 8px; }
-.field-row > .field { flex: 1; border-bottom: 0; }
+/* iOS Safari は日付・時刻入力に固有のサイズを持たせるため、
+   ネイティブ装飾を外して幅の指定に従わせる（カレンダーの選択操作は変わらない） */
+.field input[type="date"],
+.field input[type="time"],
+.field input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  text-align: left;
+}
+.field-row { display: flex; gap: 8px; min-width: 0; }
+.field-row > .field { flex: 1 1 0; min-width: 0; border-bottom: 0; }
+
+/* 日付・時刻の入力は iOS Safari で固有幅が大きく、横並びだと枠に収まりきらない。
+   幅の狭い端末では縦に積んで、必ず1行ぶんの幅を確保する。 */
+@media (max-width: 430px) {
+  .field-row.is-datetime { flex-wrap: wrap; }
+  .field-row.is-datetime > .field { flex: 1 1 100%; }
+}
 
 .seg { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .seg button {

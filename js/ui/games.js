@@ -89,7 +89,7 @@ export async function createGame() {
 async function gameInfoSheet(g, { isNew = false } = {}) {
   const body = html`
     <div class="card" style="margin:0 0 12px">
-      <div class="field-row">
+      <div class="field-row is-datetime">
         <label class="field"><span>日付</span>
           <input name="date" type="date" value="${g.date}"></label>
         <label class="field"><span>開始時刻</span>

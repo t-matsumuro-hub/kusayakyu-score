@@ -41,6 +41,7 @@ export const gamesScreen = {
           まだ試合がありません。<br>右上の「＋ 新規」から作成してください。
         </div></div>
         <p class="small muted">先に「メンバー」タブで選手を登録しておくと、打順の設定がスムーズです。</p>
+        <button class="btn btn-block" data-help>📖 使い方を見る</button>
       ` : raw(seasons.map((s) => {
         const list = bySeason.get(s);
         const w = list.filter((g) => gameOutcome(g) === 'win').length;
@@ -55,6 +56,7 @@ export const gamesScreen = {
     `);
 
     wireModeSwitch(view);
+    on(view, 'click', '[data-help]', () => go('help', {}));
     on(view, 'click', '[data-game]', (e, b) => go('gameDetail', { id: b.dataset.game }));
   }
 };

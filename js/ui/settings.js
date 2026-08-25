@@ -25,6 +25,15 @@ export default {
     const paCount = state.games.reduce((n, g) => n + (g.pas || []).length, 0);
 
     render(view, html`
+      <div class="card">
+        <button class="row" data-help>
+          <div class="row-main">
+            <div class="row-title">📖 使い方を見る</div>
+            <div class="row-sub">記録の始め方からバックアップまで</div>
+          </div><span class="chev">›</span>
+        </button>
+      </div>
+
       <h2 class="section">入力モード</h2>
       <div class="card card-pad">
         <div class="seg" data-appmode>
@@ -111,7 +120,7 @@ export default {
       <h2 class="section">このアプリについて</h2>
       <div class="card card-pad">
         <div class="small muted">
-          草野球スコア v2.2.1<br>
+          草野球スコア v2.3.0<br>
           データはこの端末の中だけに保存され、外部には送信されません。<br>
           ホーム画面に追加すれば、通信が無くても動作します。
         </div>
@@ -130,6 +139,11 @@ export default {
         </p>
       </div>
     `);
+
+    on(view, 'click', '[data-help]', async () => {
+      const { go } = await import('./router.js');
+      go('help', {});
+    });
 
     on(view, 'click', '[data-appmode] [data-mode]', async (e, b) => {
       if (b.dataset.mode === s.appMode) return;

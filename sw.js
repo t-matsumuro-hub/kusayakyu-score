@@ -7,7 +7,7 @@
    更新は VERSION を上げた sw.js が配信されたときにだけ行う。
    ブラウザは起動時に sw.js だけを確認する（数百バイト程度）。 */
 
-const VERSION = 'v2.2.1';
+const VERSION = 'v2.3.0';
 const CACHE = `bbscore-${VERSION}`;
 
 const SHELL = [
@@ -31,6 +31,7 @@ const SHELL = [
   './js/ui/stats.js',
   './js/ui/settings.js',
   './js/ui/personal.js',
+  './js/ui/help.js',
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png'

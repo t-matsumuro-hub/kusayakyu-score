@@ -15,6 +15,7 @@ import scoreScreen from './ui/score.js';
 import statsScreen from './ui/stats.js';
 import settingsScreen from './ui/settings.js';
 import { personalScreen, personalGameScreen, personalStatsScreen } from './ui/personal.js';
+import helpScreen from './ui/help.js';
 
 async function boot() {
   try {
@@ -37,7 +38,8 @@ async function boot() {
     settings: settingsScreen,
     personal: personalScreen,
     personalGame: personalGameScreen,
-    personalStats: personalStatsScreen
+    personalStats: personalStatsScreen,
+    help: helpScreen
   });
 
   // モードによって「試合」タブと「成績」タブの中身を差し替える

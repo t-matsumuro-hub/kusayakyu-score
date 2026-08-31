@@ -412,12 +412,44 @@ export function fmtNum(v, digits = 2) {
   return v.toFixed(digits);
 }
 
-export function aggregatePitching(games, opts = {}) {
-  const { season = null } = opts;
+/** 手入力した過去の投手成績を集計フォーマットに直す */
+export function normalizeLegacyPitch(rec) {
+  const src = rec && rec.pitch;
+  if (!src) return null;
+  const p = emptyPitch();
+  p.outs = (Number(src.ipWhole) || 0) * 3 + (Number(src.ipThird) || 0);
+  for (const k of ['G', 'BF', 'H', 'HR', 'SO', 'BB', 'HBP', 'R', 'ER', 'W', 'L', 'SV']) {
+    p[k] = Number(src[k]) || 0;
+  }
+  // 何も入っていなければ登板なしとみなす
+  if (!p.outs && !p.G && !p.BF && !p.H && !p.SO && !p.R) return null;
+  p.AB = Math.max(0, p.BF - p.BB - p.HBP);
+  return p;
+}
+
+/**
+ * 投手成績をまとめる。手入力した過去成績（player.legacy[].pitch）も合算する。
+ * @param {Array} games   全試合（season で絞る）
+ * @param {Array} players 全選手（legacy を持つ）
+ */
+export function aggregatePitching(games, players = [], opts = {}) {
+  const { season = null, includeLegacy = true } = opts;
   const map = new Map();
   for (const g of games) {
     if (season != null && seasonOf(g.date) !== season) continue;
     accumulatePitching(map, g);
+  }
+
+  if (includeLegacy) {
+    for (const p of players) {
+      for (const rec of p.legacy || []) {
+        if (season != null && Number(rec.season) !== season) continue;
+        const norm = normalizeLegacyPitch(rec);
+        if (!norm) continue;
+        if (!map.has(p.id)) map.set(p.id, emptyPitch());
+        addPitch(map.get(p.id), norm);
+      }
+    }
   }
   return map;
 }
@@ -465,12 +497,28 @@ export function accumulateFielding(into, game) {
   return into;
 }
 
-export function aggregateFielding(games, opts = {}) {
-  const { season = null } = opts;
+/** 守備（失策）をまとめる。手入力の過去成績の失策数も合算する。 */
+export function aggregateFielding(games, players = [], opts = {}) {
+  const { season = null, includeLegacy = true } = opts;
   const map = new Map();
   for (const g of games) {
     if (season != null && seasonOf(g.date) !== season) continue;
     accumulateFielding(map, g);
+  }
+
+  if (includeLegacy) {
+    for (const p of players) {
+      for (const rec of p.legacy || []) {
+        if (season != null && Number(rec.season) !== season) continue;
+        const e = Number(rec.E) || 0;
+        if (!e) continue;
+        if (!map.has(p.id)) map.set(p.id, emptyField());
+        const acc = map.get(p.id);
+        acc.E += e;
+        acc.other += e;   // 手入力は種類・位置の内訳を持たない
+        acc.legacy = (acc.legacy || 0) + e;
+      }
+    }
   }
   return map;
 }

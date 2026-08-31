@@ -314,6 +314,24 @@ export const PERSONAL_SOURCES = [
   { v: 'manual', label: '合計を直接入力', hint: '4打数2安打…とまとめて書く' }
 ];
 
+/** 過去成績（1年ぶん）として手入力する投手項目。勝敗は年間の合計なので数で持つ。 */
+export const LEGACY_PITCH_FIELDS = [
+  { key: 'G', label: '登板' },
+  { key: 'ipWhole', label: '投球回', hint: '回' },
+  { key: 'ipThird', label: '＋1/3', hint: '0〜2' },
+  { key: 'BF', label: '打者' },
+  { key: 'H', label: '被安打' },
+  { key: 'HR', label: '被本塁打' },
+  { key: 'SO', label: '奪三振' },
+  { key: 'BB', label: '与四球' },
+  { key: 'HBP', label: '与死球' },
+  { key: 'R', label: '失点' },
+  { key: 'ER', label: '自責点' },
+  { key: 'W', label: '勝' },
+  { key: 'L', label: '敗' },
+  { key: 'SV', label: 'セーブ' }
+];
+
 /** 簡易投手成績の入力項目（結果だけを記録する） */
 export const PITCH_INPUT_FIELDS = [
   { key: 'ipWhole', label: '投球回', hint: '回' },

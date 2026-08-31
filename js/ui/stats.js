@@ -76,8 +76,8 @@ export default {
       </div>
 
       ${mode === 'bat' ? battingTableHTML(rows, qual)
-        : mode === 'pitch' ? raw(pitchingTableHTML(games))
-        : raw(fieldingTableHTML(games))}
+        : mode === 'pitch' ? raw(pitchingTableHTML(season))
+        : raw(fieldingTableHTML(season))}
     `);
 
     on(view, 'click', '[data-m]', (e, b) => { mode = b.dataset.m; rerender(); });
@@ -144,8 +144,8 @@ function battingTableHTML(rows, qual) {
 
 /* ---------------- 投手 ---------------- */
 
-function pitchingTableHTML(games) {
-  const map = aggregatePitching(games, { season: null });
+function pitchingTableHTML(season) {
+  const map = aggregatePitching(state.games, state.players, { season });
   const eraIn = state.settings.eraInnings || 9;
   const rows = [...map]
     .map(([pid, p]) => ({ id: pid, name: state.players.find((x) => x.id === pid)?.name || '(不明)', p }))
@@ -182,13 +182,14 @@ function pitchingTableHTML(games) {
   <p class="small muted">
     投球回は 1/3 単位です。自責点は試合詳細の投手成績から手で直せます（未入力なら失点と同じ値）。
     防御率の基準イニングは設定タブで変えられます。
+    メンバー画面で入力した過去の投手成績も合算しています。
   </p>`;
 }
 
 /* ---------------- 守備 ---------------- */
 
-function fieldingTableHTML(games) {
-  const map = aggregateFielding(games, { season: null });
+function fieldingTableHTML(season) {
+  const map = aggregateFielding(state.games, state.players, { season });
   const rows = [...map]
     .map(([pid, f]) => ({ id: pid, name: state.players.find((x) => x.id === pid)?.name || '(不明)', f }))
     .filter((r) => r.f.E > 0)

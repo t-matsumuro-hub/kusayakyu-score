@@ -95,8 +95,8 @@ function rankingHTML(rows, qual) {
     ${qual > 0 ? `<p class="note">打率・OPS は規定打席 ${qual} 打席以上が対象です。</p>` : ''}`;
 }
 
-function pitchingHTML(games, eraIn) {
-  const map = aggregatePitching(games, { season: null });
+function pitchingHTML(season, eraIn) {
+  const map = aggregatePitching(state.games, state.players, { season });
   const rows = [...map]
     .map(([pid, p]) => ({ name: state.players.find((x) => x.id === pid)?.name || '(不明)', p }))
     .filter((r) => r.p.outs > 0 || r.p.BF > 0)
@@ -118,8 +118,8 @@ function pitchingHTML(games, eraIn) {
     <p class="note">防御率は${eraIn}回換算です。</p>`;
 }
 
-function fieldingHTML(games) {
-  const map = aggregateFielding(games, { season: null });
+function fieldingHTML(season) {
+  const map = aggregateFielding(state.games, state.players, { season });
   const rows = [...map]
     .map(([pid, f]) => ({ name: state.players.find((x) => x.id === pid)?.name || '(不明)', f }))
     .filter((r) => r.f.E > 0)
@@ -257,8 +257,8 @@ ${season != null && careerRows.length ? `
 <h2>通算成績（全年度＋手入力分）</h2>
 <div class="card">${tableHTML(careerRows, qualCareer)}</div>` : ''}
 
-${pitchingHTML(sorted, state.settings.eraInnings || 9)}
-${fieldingHTML(sorted)}
+${pitchingHTML(season, state.settings.eraInnings || 9)}
+${fieldingHTML(season)}
 
 <h2>試合一覧${season == null ? '' : `（${season}年）`}</h2>
 <div class="card">${gamesHTML(sorted) || '<p class="empty">試合がありません</p>'}</div>

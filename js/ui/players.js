@@ -6,7 +6,11 @@ import {
   wireSegments, segment, confirmSheet
 } from './common.js';
 import { state, playersSorted, savePlayer, removePlayer, saveLegacy, removeLegacy } from '../store.js';
-import { LEGACY_FIELDS, normalizeLegacy, rates, fmtRate } from '../stats.js';
+import {
+  LEGACY_FIELDS, normalizeLegacy, normalizeLegacyPitch,
+  rates, fmtRate, formatIP, pitchRates, fmtNum
+} from '../stats.js';
+import { LEGACY_PITCH_FIELDS } from '../model.js';
 import { rerender } from './router.js';
 
 let showRetired = false;
@@ -151,10 +155,12 @@ function legacySection(p) {
         : html`<ul class="list">${raw(rows.map((r) => {
             const n = normalizeLegacy(r);
             const rt = rates(n);
+            const p = normalizeLegacyPitch(r);
             return `<li><button class="row" data-legacy-edit="${esc(r.id)}">
               <div class="row-main">
                 <div class="row-title">${esc(r.season)}年</div>
                 <div class="row-sub mono">${n.G}試合 ${n.AB}打数${n.H}安打 本${n.HR} 点${n.RBI}</div>
+                ${p ? `<div class="row-sub mono">投 ${p.G}登板 ${formatIP(p.outs)}回 ${p.W}勝${p.L}敗 防${fmtNum(pitchRates(p, 9).era)}</div>` : ''}
               </div>
               <span class="row-aside mono">${fmtRate(rt.avg)}</span>
               <span class="chev">›</span>
@@ -174,11 +180,14 @@ async function editLegacy(playerId, legacyId) {
   const isNew = !rec;
   const defaultSeason = rec?.season || (new Date().getFullYear() - 1);
 
+  const pitch = (rec && rec.pitch) || {};
   const body = html`
     <div class="card" style="margin:0 0 12px">
       <label class="field"><span>年度 <span style="color:var(--danger)">*</span></span>
         <input name="season" type="number" inputmode="numeric" value="${defaultSeason}" min="1900" max="2999"></label>
     </div>
+
+    <h2 class="section" style="margin-top:0">打撃成績</h2>
     <div class="card">
       ${raw(chunk(LEGACY_FIELDS, 3).map((group) => `
         <div class="field-row">
@@ -188,8 +197,23 @@ async function editLegacy(playerId, legacyId) {
                      value="${rec ? esc(rec[f.key] ?? '') : ''}" placeholder="0"></label>`).join('')}
         </div>`).join(''))}
     </div>
+
+    <h2 class="section">投手成績<span class="tiny muted">（登板した年のみ）</span></h2>
+    <div class="card">
+      ${raw(chunk(LEGACY_PITCH_FIELDS, 3).map((group) => `
+        <div class="field-row">
+          ${group.map((f) => `
+            <label class="field"><span>${esc(f.label)}${f.hint ? `<span class="tiny"> ${esc(f.hint)}</span>` : ''}</span>
+              <input name="p_${f.key}" type="number" inputmode="numeric" min="0"
+                     ${f.key === 'ipThird' ? 'max="2"' : ''}
+                     value="${esc(pitch[f.key] ?? '')}" placeholder="0"></label>`).join('')}
+        </div>`).join(''))}
+    </div>
+
     <p class="small muted" style="margin-top:10px">
-      分かる項目だけで構いません。空欄は 0 として扱います。
+      分かる項目だけで構いません。空欄は 0 として扱います。<br>
+      投球回は「回」と「＋1/3」に分けて入れます（例: 20回2/3 なら 20 と 2）。
+      投手欄をすべて空欄にすると、その年は登板なしとして扱います。
     </p>`;
 
   const { action, values } = await formSheet({
@@ -215,6 +239,18 @@ async function editLegacy(playerId, legacyId) {
     const v = values[f.key];
     row[f.key] = v === '' || v == null ? 0 : Math.max(0, Number(v) || 0);
   }
+
+  // 投手成績。すべて空欄なら登板なしとして持たない
+  const pitchOut = {};
+  let anyPitch = false;
+  for (const f of LEGACY_PITCH_FIELDS) {
+    const v = values[`p_${f.key}`];
+    const n = v === '' || v == null ? 0 : Math.max(0, Number(v) || 0);
+    pitchOut[f.key] = f.key === 'ipThird' ? Math.min(2, n) : n;
+    if (n > 0) anyPitch = true;
+  }
+  row.pitch = anyPitch ? pitchOut : null;
+
   await saveLegacy(playerId, row);
   toast('保存しました');
 }

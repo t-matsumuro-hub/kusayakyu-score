@@ -7,7 +7,7 @@
    更新は VERSION を上げた sw.js が配信されたときにだけ行う。
    ブラウザは起動時に sw.js だけを確認する（数百バイト程度）。 */
 
-const VERSION = 'v2.3.0';
+const VERSION = 'v2.4.0';
 const CACHE = `bbscore-${VERSION}`;
 
 const SHELL = [

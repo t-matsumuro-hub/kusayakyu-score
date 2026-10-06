@@ -2,7 +2,7 @@
    外部ファイルを一切参照しないので、LINE などで送れば受け取った人が
    タップするだけでブラウザで見られる（サーバ不要）。 */
 
-import { state } from './store.js';
+import { state, linkedPersonal } from './store.js';
 import {
   aggregate, rates, fmtRate, qualifiedPA, seasonsOf,
   aggregatePitching, aggregateFielding, pitchRates, formatIP, fmtNum
@@ -96,7 +96,7 @@ function rankingHTML(rows, qual) {
 }
 
 function pitchingHTML(season, eraIn) {
-  const map = aggregatePitching(state.games, state.players, { season });
+  const map = aggregatePitching(state.games, state.players, { season, personal: linkedPersonal() });
   const rows = [...map]
     .map(([pid, p]) => ({ name: state.players.find((x) => x.id === pid)?.name || '(不明)', p }))
     .filter((r) => r.p.outs > 0 || r.p.BF > 0)
@@ -119,7 +119,7 @@ function pitchingHTML(season, eraIn) {
 }
 
 function fieldingHTML(season) {
-  const map = aggregateFielding(state.games, state.players, { season });
+  const map = aggregateFielding(state.games, state.players, { season, personal: linkedPersonal() });
   const rows = [...map]
     .map(([pid, f]) => ({ name: state.players.find((x) => x.id === pid)?.name || '(不明)', f }))
     .filter((r) => r.f.E > 0)
@@ -164,7 +164,7 @@ function buildRows(map) {
     rows.push({
       name: p.name,
       bat: entry.bat,
-      note: entry.fromLegacy && !entry.fromApp ? '手入力' : (entry.fromLegacy ? '手入力含む' : '')
+      note: [entry.fromLegacy ? '手入力' : '', entry.fromPersonal ? '個人記録' : ''].filter(Boolean).join('・') + (entry.fromApp && (entry.fromLegacy || entry.fromPersonal) ? '含' : '')
     });
   }
   rows.sort((a, b) => {
@@ -186,8 +186,8 @@ export function buildReportHTML({ season = null } = {}) {
   const games = season == null ? state.games : state.games.filter((g) => seasonOf(g.date) === season);
   const sorted = [...games].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-  const seasonMap = aggregate(state.games, state.players, { season });
-  const careerMap = aggregate(state.games, state.players, { season: null });
+  const seasonMap = aggregate(state.games, state.players, { season, personal: linkedPersonal() });
+  const careerMap = aggregate(state.games, state.players, { season: null, personal: linkedPersonal() });
 
   const seasonRows = buildRows(seasonMap);
   const careerRows = buildRows(careerMap);

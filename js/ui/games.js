@@ -15,7 +15,8 @@ import {
   pitchRates, formatIP, fmtNum
 } from '../stats.js';
 import { go, rerender, backTo } from './router.js';
-import { exportGameFile } from '../backup.js';
+import { exportGameFile, exportGameReport } from '../backup.js';
+import { buildBox, battingTableHTML } from '../boxscore.js';
 import { modeSwitchHTML, wireModeSwitch } from './personal.js';
 
 /* ==================== 一覧 ==================== */
@@ -167,6 +168,7 @@ export const gameDetailScreen = {
     const live = g.status !== 'final';
     const batting = gameBatting(g);
     const pitching = gamePitching(g);
+    const box = buildBox(g, { games: state.games, players: state.players, settings: state.settings });
     const lineup = lineupSorted(g);
     const oc = gameOutcome(g);
 
@@ -188,29 +190,13 @@ export const gameDetailScreen = {
         <button class="btn" data-lineup>打順・守備</button>
       </div>
 
-      <h2 class="section">個人成績（この試合）</h2>
+      <h2 class="section">打撃成績（この試合）</h2>
       <div class="card">
         ${lineup.length === 0
           ? html`<div class="empty small">打順が未設定です。「打順・守備」から設定してください。</div>`
-          : raw(`<div class="table-wrap"><table class="stats">
-              <thead><tr>
-                <th class="name">打順・選手</th><th>打席</th><th>打数</th><th>安打</th><th>本</th>
-                <th>点</th><th>四死</th><th>三振</th><th>失策</th><th>打率</th>
-              </tr></thead>
-              <tbody>
-                ${lineup.map((e) => {
-                  const b = batting.get(e.playerId);
-                  const nm = state.players.find((p) => p.id === e.playerId)?.name || '(不明)';
-                  if (!b) return `<tr class="is-dim"><td class="name">${e.order}. ${esc(nm)}</td>${'<td>-</td>'.repeat(9)}</tr>`;
-                  const rt = rates(b);
-                  return `<tr>
-                    <td class="name">${e.order}. ${esc(nm)}</td>
-                    <td>${b.PA}</td><td>${b.AB}</td><td>${b.H}</td><td>${b.HR}</td>
-                    <td>${b.RBI}</td><td>${b.BB + b.HBP}</td><td>${b.SO}</td><td>${b.E}</td>
-                    <td>${fmtRate(rt.avg)}</td></tr>`;
-                }).join('')}
-              </tbody></table></div>`)}
+          : raw(battingTableHTML(box.our, box.innings, { cls: 'stats box' }))}
       </div>
+      ${lineup.length ? html`<p class="small muted">打率はこの試合までのシーズン成績です。赤字は安打。</p>` : ''}
 
       <h2 class="section">投手成績（この試合）</h2>
       <div class="card">
@@ -248,8 +234,9 @@ export const gameDetailScreen = {
       ${g.memo ? html`<h2 class="section">メモ</h2><div class="card card-pad small">${g.memo}</div>` : ''}
 
       <div class="btn-row" style="margin-top:18px">
-        <button class="btn" data-export>この試合を書き出す</button>
+        <button class="btn btn-primary" data-export-html>試合結果を書き出す（HTML）</button>
       </div>
+      <button class="btn btn-block" data-export style="margin-bottom:10px">試合データを書き出す（取り込み用）</button>
       <button class="btn btn-block ${live ? 'btn-primary' : ''}" data-finalize style="margin-bottom:10px">
         ${live ? '試合を確定する' : '記録中に戻す'}
       </button>
@@ -296,6 +283,10 @@ export const gameDetailScreen = {
     on(view, 'click', '[data-score]', () => go('score', { id: g.id }));
     on(view, 'click', '[data-lineup]', () => go('lineup', { id: g.id }));
     on(view, 'click', '[data-export]', () => exportGameFile(g));
+    on(view, 'click', '[data-export-html]', async () => {
+      const r = await exportGameReport(g);
+      if (r !== 'cancelled') toast('試合結果を書き出しました');
+    });
 
     on(view, 'click', '[data-finalize]', async () => {
       g.status = live ? 'final' : 'in_progress';

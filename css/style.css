@@ -497,6 +497,24 @@ table.linescore td.cur { background: var(--accent-soft); }
 .stepper .val { min-width: 48px; text-align: center; font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .stepper .mini { width: 46px; height: 46px; font-size: 22px; }
 
+/* ---------- 試合の結果表（ボックススコア） ---------- */
+.bx-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.box td.inn, table.box th.inn {
+  text-align: center; min-width: 52px; font-size: 12px; line-height: 1.5;
+}
+table.box td.pos, table.box th.pos { text-align: center; color: var(--muted); }
+table.box .hit { color: #c0392b; font-weight: 700; }
+table.box .hr { color: #c0392b; font-weight: 800; }
+table.box .walk { color: var(--muted); }
+table.box tr.total td { font-weight: 700; background: var(--surface-2); }
+@media (prefers-color-scheme: dark) {
+  table.box .hit, table.box .hr { color: #ff7b6e; }
+}
+/* スマホでは列を少し詰めて、横スクロールの量を減らす */
+@media (max-width: 640px) {
+  table.box td.inn, table.box th.inn { min-width: 42px; font-size: 11px; }
+}
+
 /* ---------- 使い方（ヘルプ） ---------- */
 details.help {
   background: var(--surface);

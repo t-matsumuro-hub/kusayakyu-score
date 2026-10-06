@@ -1,7 +1,7 @@
 /* 成績（年度別・通算）。手入力の過去成績も合算して表示する。 */
 
 import { html, raw, esc, render, on, toast, sheet } from './common.js';
-import { state } from '../store.js';
+import { state, linkedPersonal } from '../store.js';
 import {
   aggregate, rates, fmtRate, qualifiedPA, seasonsOf, emptyBat, addBat, normalizeLegacy,
   aggregatePitching, aggregateFielding, pitchRates, formatIP, fmtNum
@@ -41,10 +41,10 @@ export default {
   action: () => ({ label: '書き出し', run: () => exportMenu() }),
 
   async render(view) {
-    const seasons = seasonsOf(state.games, state.players);
+    const seasons = seasonsOf(state.games, state.players, linkedPersonal());
     if (season != null && !seasons.includes(season)) season = null;
 
-    const map = aggregate(state.games, state.players, { season });
+    const map = aggregate(state.games, state.players, { season, personal: linkedPersonal() });
     const games = season == null ? state.games : state.games.filter((g) => seasonOf(g.date) === season);
     const qual = qualifiedPA(state.settings, games.length);
     const rows = buildRows(map);
@@ -145,7 +145,7 @@ function battingTableHTML(rows, qual) {
 /* ---------------- 投手 ---------------- */
 
 function pitchingTableHTML(season) {
-  const map = aggregatePitching(state.games, state.players, { season });
+  const map = aggregatePitching(state.games, state.players, { season, personal: linkedPersonal() });
   const eraIn = state.settings.eraInnings || 9;
   const rows = [...map]
     .map(([pid, p]) => ({ id: pid, name: state.players.find((x) => x.id === pid)?.name || '(不明)', p }))
@@ -189,7 +189,7 @@ function pitchingTableHTML(season) {
 /* ---------------- 守備 ---------------- */
 
 function fieldingTableHTML(season) {
-  const map = aggregateFielding(state.games, state.players, { season });
+  const map = aggregateFielding(state.games, state.players, { season, personal: linkedPersonal() });
   const rows = [...map]
     .map(([pid, f]) => ({ id: pid, name: state.players.find((x) => x.id === pid)?.name || '(不明)', f }))
     .filter((r) => r.f.E > 0)
@@ -236,7 +236,7 @@ function buildRows(map) {
       id: pid,
       name: p.name,
       bat: entry.bat,
-      note: entry.fromLegacy && !entry.fromApp ? '手入力' : (entry.fromLegacy ? '手入力含' : '')
+      note: [entry.fromLegacy ? '手入力' : '', entry.fromPersonal ? '個人記録' : ''].filter(Boolean).join('・') + (entry.fromApp && (entry.fromLegacy || entry.fromPersonal) ? '含' : '')
     });
   }
 
@@ -268,7 +268,7 @@ async function playerDetail(playerId) {
   const list = [...years].filter(Number.isFinite).sort((a, b) => b - a);
 
   const rowsHTML = list.map((y) => {
-    const m = aggregate(state.games, state.players, { season: y });
+    const m = aggregate(state.games, state.players, { season: y, personal: linkedPersonal() });
     const e = m.get(playerId);
     const bat = e ? e.bat : emptyBat();
     const rt = rates(bat);
@@ -280,7 +280,7 @@ async function playerDetail(playerId) {
       <td>${fmtRate(rt.ops)}</td></tr>`;
   }).join('');
 
-  const career = aggregate(state.games, state.players, { season: null }).get(playerId);
+  const career = aggregate(state.games, state.players, { season: null, personal: linkedPersonal() }).get(playerId);
   const cb = career ? career.bat : emptyBat();
   const crt = rates(cb);
 
@@ -313,7 +313,7 @@ async function playerDetail(playerId) {
 /* ---------------- 書き出し ---------------- */
 
 async function exportMenu() {
-  const seasons = seasonsOf(state.games, state.players);
+  const seasons = seasonsOf(state.games, state.players, linkedPersonal());
   const v = await sheet({
     title: '成績表を書き出す',
     body: html`

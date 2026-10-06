@@ -302,6 +302,7 @@ export const DEFAULT_SETTINGS = {
   backupWarnDays: 7,
   keepAwake: true,
   appMode: 'team',        // 'team' = 試合のスコア入力 / 'personal' = 個人成績入力
+  linkPersonal: true,     // チームの成績と個人記録を合算する（重複試合は自動で除外）
   personalPlayerId: ''    // 個人成績モードで選んでいる選手
 };
 

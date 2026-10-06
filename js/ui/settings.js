@@ -44,6 +44,14 @@ export default {
           「試合のスコア」はチームの試合を丸ごと記録します。
           「個人成績」はスコアを付けずに、選んだメンバー1人の成績だけを残します。
         </p>
+        <label class="switch" style="margin-top:12px">
+          <span style="font-weight:600">チームの成績と個人記録を合算する</span>
+          <input type="checkbox" data-link-personal ${raw(s.linkPersonal !== false ? 'checked' : '')}>
+        </label>
+        <p class="tiny muted" style="margin:6px 0 0">
+          オンにすると、どちらの画面でも同じ通算成績になります。
+          同じ試合が両方にあればチーム側だけを数えます（日付と対戦相手で判定）。
+        </p>
       </div>
 
       <h2 class="section">バックアップ</h2>
@@ -120,7 +128,7 @@ export default {
       <h2 class="section">このアプリについて</h2>
       <div class="card card-pad">
         <div class="small muted">
-          草野球スコア v2.4.0<br>
+          草野球スコア v2.5.0<br>
           データはこの端末の中だけに保存され、外部には送信されません。<br>
           ホーム画面に追加すれば、通信が無くても動作します。
         </div>
@@ -139,6 +147,11 @@ export default {
         </p>
       </div>
     `);
+
+    on(view, 'change', '[data-link-personal]', async (e, el) => {
+      await saveSettings({ linkPersonal: el.checked });
+      toast(el.checked ? '個人記録をチームの成績に合算します' : '個人記録を別に集計します');
+    });
 
     on(view, 'click', '[data-help]', async () => {
       const { go } = await import('./router.js');

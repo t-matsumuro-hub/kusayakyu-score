@@ -243,6 +243,101 @@ export function personalSeasons(records) {
   return [...set].filter(Number.isFinite).sort((a, b) => b - a);
 }
 
+/* ---------------- チームの試合と個人記録の結び付け ----------------
+   同じ選手の成績が「チームのスコア」と「個人記録」の両方にあるとき、
+   同じ試合を二重に数えないための判定。チーム側の方が詳しい（走者・投手まで
+   持つ）ので、重複していればチーム側を採り、個人記録は集計から外す。 */
+
+function normTeam(s) { return String(s || '').replace(/\s+/g, '').toLowerCase(); }
+
+/** その選手がそのチームの試合に出場したか */
+export function playedIn(game, playerId) {
+  return (game.lineup || []).some((e) => e.playerId === playerId)
+    || (game.pas || []).some((p) => p.playerId === playerId);
+}
+
+/** 個人記録と同じ試合と思われるチームの試合（日付が同じで、相手名が食い違わないもの） */
+export function matchingTeamGame(rec, games) {
+  return (games || []).find((g) =>
+    g.date === rec.date && playedIn(g, rec.playerId)
+    && (!rec.opponent || !g.opponent || normTeam(rec.opponent) === normTeam(g.opponent))) || null;
+}
+
+/**
+ * 個人記録を集計に入れるかどうか。
+ * rec.link: 'auto'（既定。重複なら外す）| 'include'（常に数える）| 'exclude'（数えない）
+ */
+export function personalLinkStatus(rec, games) {
+  const game = matchingTeamGame(rec, games);
+  const mode = rec.link || 'auto';
+  const counted = mode === 'include' ? true : mode === 'exclude' ? false : !game;
+  return { counted, duplicate: !!game, game, mode };
+}
+
+/** 集計に入れる個人記録だけを返す */
+export function countedPersonal(personal, games) {
+  return (personal || []).filter((r) => personalLinkStatus(r, games).counted);
+}
+
+/**
+ * 1人の選手の成績を、チームの試合・個人記録・手入力の過去成績から合算する。
+ * 個人成績画面とチームの成績画面で同じ数字になるよう、同じ規則で数える。
+ */
+export function aggregatePlayerAll(playerId, opts = {}) {
+  const {
+    games = [], personal = [], players = [],
+    season = null, includeTeam = true, includeLegacy = true
+  } = opts;
+  const bat = emptyBat();
+  const pitch = emptyPitch();
+  let teamGames = 0;
+  let personalGames = 0;
+  let legacyGames = 0;
+  let pitchGames = 0;
+
+  if (includeTeam) {
+    for (const g of games) {
+      if (season != null && seasonOf(g.date) !== season) continue;
+      if (!playedIn(g, playerId)) continue;
+      const bm = new Map();
+      accumulateGame(bm, g);
+      const b = bm.get(playerId);
+      if (b) addBat(bat, b);
+      teamGames += 1;
+      const pm = new Map();
+      accumulatePitching(pm, g);
+      const p = pm.get(playerId);
+      if (p) { addPitch(pitch, p); pitchGames += 1; }
+    }
+  }
+
+  const mine = (personal || []).filter((r) => r.playerId === playerId);
+  for (const r of includeTeam ? countedPersonal(mine, games) : mine) {
+    if (season != null && seasonOf(r.date) !== season) continue;
+    addBat(bat, personalBatting(r));
+    personalGames += 1;
+    const p = personalPitching(r);
+    if (p) { addPitch(pitch, p); pitchGames += 1; }
+  }
+
+  if (includeLegacy) {
+    const pl = (players || []).find((x) => x.id === playerId);
+    for (const rec of (pl && pl.legacy) || []) {
+      if (season != null && Number(rec.season) !== season) continue;
+      const n = normalizeLegacy(rec);
+      addBat(bat, n);
+      legacyGames += n.G;
+      const p = normalizeLegacyPitch(rec);
+      if (p) { addPitch(pitch, p); pitchGames += p.G; }
+    }
+  }
+
+  const gamesN = teamGames + personalGames + legacyGames;
+  bat.G = gamesN;
+  pitch.G = pitchGames;
+  return { bat, pitch, games: gamesN, pitchGames, teamGames, personalGames, legacyGames };
+}
+
 /* ---------------- レート計算 ---------------- */
 
 export function rates(b) {
@@ -272,7 +367,7 @@ export function fmtRate(v) {
  * @returns {Map<string,{bat, fromApp, fromLegacy}>}
  */
 export function aggregate(games, players, opts = {}) {
-  const { season = null, includeLegacy = true } = opts;
+  const { season = null, includeLegacy = true, personal = [] } = opts;
 
   const appMap = new Map();
   for (const g of games) {
@@ -298,14 +393,24 @@ export function aggregate(games, players, opts = {}) {
     }
   }
 
+  // 個人成績モードの記録（チームの試合と重複するものは除く）
+  for (const r of countedPersonal(personal, games)) {
+    if (season != null && seasonOf(r.date) !== season) continue;
+    if (!out.has(r.playerId)) out.set(r.playerId, { bat: emptyBat(), fromApp: false, fromLegacy: false });
+    const e = out.get(r.playerId);
+    addBat(e.bat, personalBatting(r));
+    e.fromPersonal = true;
+  }
+
   return out;
 }
 
 /** データが存在する年度の一覧（新しい順） */
-export function seasonsOf(games, players) {
+export function seasonsOf(games, players, personal = []) {
   const set = new Set();
   for (const g of games) set.add(seasonOf(g.date));
   for (const p of players) for (const r of p.legacy || []) set.add(Number(r.season));
+  for (const r of personal || []) set.add(seasonOf(r.date));
   return [...set].filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
 }
 
@@ -433,7 +538,7 @@ export function normalizeLegacyPitch(rec) {
  * @param {Array} players 全選手（legacy を持つ）
  */
 export function aggregatePitching(games, players = [], opts = {}) {
-  const { season = null, includeLegacy = true } = opts;
+  const { season = null, includeLegacy = true, personal = [] } = opts;
   const map = new Map();
   for (const g of games) {
     if (season != null && seasonOf(g.date) !== season) continue;
@@ -450,6 +555,14 @@ export function aggregatePitching(games, players = [], opts = {}) {
         addPitch(map.get(p.id), norm);
       }
     }
+  }
+
+  for (const r of countedPersonal(personal, games)) {
+    if (season != null && seasonOf(r.date) !== season) continue;
+    const p = personalPitching(r);
+    if (!p) continue;
+    if (!map.has(r.playerId)) map.set(r.playerId, emptyPitch());
+    addPitch(map.get(r.playerId), p);
   }
   return map;
 }
@@ -499,7 +612,7 @@ export function accumulateFielding(into, game) {
 
 /** 守備（失策）をまとめる。手入力の過去成績の失策数も合算する。 */
 export function aggregateFielding(games, players = [], opts = {}) {
-  const { season = null, includeLegacy = true } = opts;
+  const { season = null, includeLegacy = true, personal = [] } = opts;
   const map = new Map();
   for (const g of games) {
     if (season != null && seasonOf(g.date) !== season) continue;
@@ -519,6 +632,16 @@ export function aggregateFielding(games, players = [], opts = {}) {
         acc.legacy = (acc.legacy || 0) + e;
       }
     }
+  }
+
+  for (const r of countedPersonal(personal, games)) {
+    if (season != null && seasonOf(r.date) !== season) continue;
+    const e = Number((r.extra || {}).E) || 0;
+    if (!e) continue;
+    if (!map.has(r.playerId)) map.set(r.playerId, emptyField());
+    const acc = map.get(r.playerId);
+    acc.E += e;
+    acc.other += e;
   }
   return map;
 }

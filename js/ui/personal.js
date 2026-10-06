@@ -20,7 +20,8 @@ import {
 } from '../model.js';
 import {
   personalBatting, personalPitching, aggregatePersonal, personalSeasons,
-  rates, fmtRate, formatIP, pitchRates, fmtNum, summarizeLine, LEGACY_FIELDS
+  rates, fmtRate, formatIP, pitchRates, fmtNum, summarizeLine, LEGACY_FIELDS,
+  aggregatePlayerAll, playedIn, personalLinkStatus, gameBatting, gamePitching
 } from '../stats.js';
 import { go, rerender, back, backTo } from './router.js';
 
@@ -68,10 +69,16 @@ export const personalScreen = {
   async render(view) {
     const p = currentPlayer();
     const records = p ? personalOf(p.id) : [];
-    const seasons = personalSeasons(records);
-    const career = aggregatePersonal(records, { season: null });
+    const teamGames = p && linked() ? state.games.filter((g) => playedIn(g, p.id)) : [];
     const thisYear = seasonOf(todayISO());
-    const yearAgg = aggregatePersonal(records, { season: thisYear });
+    const career = p ? playerAgg(p.id, null) : null;
+    const yearAgg = p ? playerAgg(p.id, thisYear) : null;
+
+    // チームの試合と個人記録を日付順に1本の一覧にする
+    const items = [
+      ...records.map((r) => ({ kind: 'personal', date: r.date, at: r.createdAt || '', r })),
+      ...teamGames.map((g) => ({ kind: 'team', date: g.date, at: g.createdAt || '', g }))
+    ].sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.at.localeCompare(a.at));
 
     render(view, html`
       ${raw(modeSwitchHTML('personal'))}
@@ -80,7 +87,9 @@ export const personalScreen = {
         <button class="row" data-pick>
           <div class="row-main">
             <div class="row-title">${p ? esc(p.name) : '選手を選ぶ'}</div>
-            <div class="row-sub">${p ? `個人記録 ${records.length}件` : 'メンバーから選択してください'}</div>
+            <div class="row-sub">${p
+              ? `個人記録 ${records.length}件${linked() ? ` ・ チームの試合 ${teamGames.length}件` : ''}`
+              : 'メンバーから選択してください'}</div>
           </div><span class="chev">›</span>
         </button>
       </div>
@@ -95,24 +104,27 @@ export const personalScreen = {
           ${raw(summaryHTML('今年', yearAgg))}
           <div style="height:10px"></div>
           ${raw(summaryHTML('通算', career))}
+          ${linked() ? raw(`<div class="tiny muted" style="margin-top:8px">${sourceNote(career)}</div>`) : ''}
         </div>
 
         <div class="btn-row">
           <button class="btn" data-stats>年度別の成績を見る</button>
         </div>
 
-        <h2 class="section">試合の記録（${records.length}件）</h2>
+        <h2 class="section">試合の記録（${items.length}件）</h2>
         <div class="card">
-          ${records.length === 0
+          ${items.length === 0
             ? html`<div class="empty small">
                 まだありません。右上の「＋ 記録」から追加してください。
               </div>`
-            : raw(`<ul class="list">${records.map((r) => recordRow(r)).join('')}</ul>`)}
+            : raw(`<ul class="list">${items.map((it) =>
+                it.kind === 'team' ? teamRow(it.g, p.id) : recordRow(it.r)).join('')}</ul>`)}
         </div>
 
         <p class="small muted" style="margin-top:10px">
-          ここで入れた記録は、チームの試合スコアとは別に管理されます。
-          同じ試合を両方で入れると二重になるので、どちらか一方にしてください。
+          ${linked()
+            ? '「チーム」の行はチームのスコア入力で記録した試合です（ここからは閲覧のみ）。同じ試合を個人記録にも入れた場合は、自動でチーム側だけを数えます。'
+            : 'チームの成績との連携はオフです（設定タブで変更できます）。'}
         </p>
       `}
     `);
@@ -120,9 +132,54 @@ export const personalScreen = {
     wireModeSwitch(view);
     on(view, 'click', '[data-pick]', async () => { if (await choosePlayer()) rerender(); });
     on(view, 'click', '[data-rec]', (e, b) => go('personalGame', { id: b.dataset.rec }));
+    on(view, 'click', '[data-team-game]', (e, b) => go('gameDetail', { id: b.dataset.teamGame }));
     on(view, 'click', '[data-stats]', () => go('personalStats', {}));
   }
 };
+
+/* ---------------- チームの成績との連携 ---------------- */
+
+function linked() { return state.settings.linkPersonal !== false; }
+
+/** 選手1人の成績。連携オンならチームの試合と過去成績も合算する。 */
+function playerAgg(playerId, season) {
+  if (!linked()) return aggregatePersonal(personalOf(playerId), { season });
+  return aggregatePlayerAll(playerId, {
+    games: state.games, personal: state.personal, players: state.players, season
+  });
+}
+
+/** 選手に記録がある年度（チームの試合・個人記録・過去成績の和集合） */
+function playerSeasons(p) {
+  const set = new Set(personalSeasons(personalOf(p.id)));
+  if (linked()) {
+    for (const g of state.games) if (playedIn(g, p.id)) set.add(seasonOf(g.date));
+    for (const r of p.legacy || []) set.add(Number(r.season));
+  }
+  return [...set].filter(Number.isFinite).sort((a, b) => b - a);
+}
+
+function sourceNote(agg) {
+  if (!agg) return '';
+  const parts = [];
+  if (agg.teamGames) parts.push(`チームの試合 ${agg.teamGames}`);
+  if (agg.personalGames) parts.push(`個人記録 ${agg.personalGames}`);
+  if (agg.legacyGames) parts.push(`過去成績 ${agg.legacyGames}`);
+  return parts.length ? `内訳（試合数）：${parts.join(' ／ ')}` : '';
+}
+
+function teamRow(g, playerId) {
+  const bat = gameBatting(g).get(playerId);
+  const pitch = gamePitching(g).get(playerId);
+  return `<li><button class="row" data-team-game="${esc(g.id)}">
+    <div class="row-main">
+      <div class="row-title">${esc(formatDate(g.date))}${g.opponent ? ` vs ${esc(g.opponent)}` : ''}</div>
+      <div class="row-sub mono">${esc(summarizeLine(bat) || '打席なし')}${pitch && pitch.outs ? ` ／ 投 ${formatIP(pitch.outs)}回` : ''}</div>
+    </div>
+    <span class="badge badge-our">チーム</span>
+    <span class="chev">›</span>
+  </button></li>`;
+}
 
 function summaryHTML(label, agg) {
   const rt = rates(agg.bat);
@@ -151,10 +208,13 @@ function recordRow(r) {
   const bat = personalBatting(r);
   const pitch = personalPitching(r);
   const src = r.source === 'manual' ? '直接入力' : `${(r.pas || []).length}打席`;
+  const st = linked() ? personalLinkStatus(r, state.games) : null;
   return `<li><button class="row" data-rec="${esc(r.id)}">
     <div class="row-main">
-      <div class="row-title">${esc(formatDate(r.date))}${r.opponent ? ` vs ${esc(r.opponent)}` : ''}</div>
+      <div class="row-title">${esc(formatDate(r.date))}${r.opponent ? ` vs ${esc(r.opponent)}` : ''}
+        ${st && !st.counted ? '<span class="badge badge-warn">集計外</span>' : ''}</div>
       <div class="row-sub mono">${esc(summarizeLine(bat) || '記録なし')}${pitch ? ` ／ 投 ${formatIP(pitch.outs)}回` : ''}</div>
+      ${st && st.duplicate && !st.counted ? '<div class="row-sub">チームの試合と重複しているため、チーム側を採用</div>' : ''}
     </div>
     <span class="row-aside">${src}</span>
     <span class="chev">›</span>
@@ -245,6 +305,8 @@ export const personalGameScreen = {
         </div>
       </div>
 
+      ${raw(linkCardHTML(rec))}
+
       <h2 class="section">打撃（${rec.source === 'manual' ? '合計を直接入力' : '打席ごとに入力'}）</h2>
 
       ${rec.source === 'manual' ? html`
@@ -311,6 +373,11 @@ export const personalGameScreen = {
       if (!moved) go('personal', {}, { resetTo: true });
     });
 
+    on(view, 'click', '[data-link]', async (e, b) => {
+      await savePersonal({ ...rec, link: b.dataset.link });
+      rerender();
+    });
+    on(view, 'click', '[data-open-team]', (e, b) => go('gameDetail', { id: b.dataset.openTeam }));
     on(view, 'click', '[data-add-pa]', () => editPA(rec, null));
     on(view, 'click', '[data-pa]', (e, b) => editPA(rec, b.dataset.pa));
     on(view, 'click', '[data-edit-manual]', () => editManual(rec));
@@ -326,6 +393,36 @@ export const personalGameScreen = {
     });
   }
 };
+
+/** チームの成績との連携状態。重複が見つかったときは採否を選べる。 */
+function linkCardHTML(rec) {
+  if (!linked()) return '';
+  const st = personalLinkStatus(rec, state.games);
+  const mode = rec.link || 'auto';
+  const opt = (v, label) =>
+    `<button type="button" data-link="${v}" class="${mode === v ? 'is-on' : ''}">${label}</button>`;
+
+  if (!st.duplicate && mode === 'auto') {
+    return `<div class="card card-pad small muted">
+      この記録はチームの成績にも合算されます。
+    </div>`;
+  }
+  return `<div class="card card-pad">
+    ${st.duplicate ? `<div class="small" style="margin-bottom:8px;color:var(--warn);font-weight:700">
+      同じ日のチームの試合（vs ${esc(st.game.opponent || '相手')}）に記録があります
+    </div>
+    <button class="btn btn-sm btn-block" style="margin-bottom:10px" data-open-team="${esc(st.game.id)}">チームの試合を開く</button>` : ''}
+    <div class="small muted" style="margin-bottom:6px">この記録を成績に数えるか</div>
+    <div class="seg">
+      ${opt('auto', '自動')}${opt('include', '数える')}${opt('exclude', '数えない')}
+    </div>
+    <div class="tiny muted" style="margin-top:6px">
+      現在：<b>${st.counted ? '数えている' : '数えていない'}</b>。
+      「自動」は、同じ試合がチーム側にあればそちらを優先して二重に数えません。
+      ダブルヘッダーなど別の試合なら「数える」にしてください。
+    </div>
+  </div>`;
+}
 
 function manualSummaryHTML(bat) {
   const rows = [
@@ -569,14 +666,14 @@ export const personalStatsScreen = {
     const p = currentPlayer();
     if (!p) { render(view, html`<div class="empty">先にメンバーを選んでください</div>`); return; }
     const records = personalOf(p.id);
-    const seasons = personalSeasons(records);
-    const career = aggregatePersonal(records, { season: null });
+    const seasons = playerSeasons(p);
+    const career = playerAgg(p.id, null);
     const legacy = (p.legacy || []).length;
 
     render(view, html`
       <div class="card card-pad" style="margin-bottom:12px">
         <div style="font-weight:700">${esc(p.name)}</div>
-        <div class="small muted">個人記録 ${records.length}件</div>
+        <div class="small muted">${linked() ? sourceNote(career) : `個人記録 ${records.length}件`}</div>
       </div>
 
       <h2 class="section">打撃</h2>
@@ -586,7 +683,7 @@ export const personalStatsScreen = {
             ${raw(BAT_COLUMNS.map((c) => `<th>${c.label}</th>`).join(''))}
             <th>打率</th><th>出塁率</th><th>長打率</th><th>OPS</th></tr></thead>
           <tbody>
-            ${raw(seasons.map((s) => batRow(String(s) + '年', aggregatePersonal(records, { season: s }))).join(''))}
+            ${raw(seasons.map((s) => batRow(String(s) + '年', playerAgg(p.id, s))).join(''))}
             ${raw(batRow('通算', career, true))}
           </tbody>
         </table></div>
@@ -602,7 +699,7 @@ export const personalStatsScreen = {
               <th>勝</th><th>敗</th><th>S</th><th>防御率</th><th>WHIP</th></tr></thead>
             <tbody>
               ${raw(seasons
-                .map((s) => ({ s, agg: aggregatePersonal(records, { season: s }) }))
+                .map((s) => ({ s, agg: playerAgg(p.id, s) }))
                 .filter(({ agg }) => agg.pitchGames > 0)   // 登板のない年度は出さない
                 .map(({ s, agg }) => pitchRow(String(s) + '年', agg)).join(''))}
               ${raw(pitchRow('通算', career, true))}
@@ -610,10 +707,11 @@ export const personalStatsScreen = {
           </table></div>
         </div>` : ''}
 
-      ${legacy ? html`<p class="small muted" style="margin-top:12px">
-        メンバー画面に登録した過去成績（${legacy}年分）はこの表には含まれません。
-        チーム全体の通算成績は「成績」タブで確認できます。
-      </p>` : ''}
+      <p class="small muted" style="margin-top:12px">
+        ${linked()
+          ? 'チームの試合・個人記録・メンバー画面の過去成績をすべて合算しています。「成績」タブの同じ選手の数字と一致します。'
+          : (legacy ? `チームの成績との連携がオフのため、個人記録だけを集計しています（過去成績${legacy}年分は含みません）。` : 'チームの成績との連携がオフのため、個人記録だけを集計しています。')}
+      </p>
     `);
   }
 };

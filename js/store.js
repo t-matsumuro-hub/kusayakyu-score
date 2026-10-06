@@ -177,6 +177,11 @@ export async function removeGame(id) {
 
 /* ---------------- 個人成績（個人成績モード） ---------------- */
 
+/** 成績の集計に混ぜる個人記録（連携を切っていれば空） */
+export function linkedPersonal() {
+  return state.settings.linkPersonal === false ? [] : state.personal;
+}
+
 export function personalById(id) {
   return state.personal.find((r) => r.id === id) || null;
 }

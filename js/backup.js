@@ -117,6 +117,16 @@ export async function exportGameFile(game) {
   return r;
 }
 
+/** 1試合の結果表（ボックススコア）を単体 HTML として書き出す */
+export async function exportGameReport(game) {
+  const { buildGameReportHTML } = await import('./boxscore.js');
+  const text = buildGameReportHTML(game, {
+    games: state.games, players: state.players, settings: state.settings
+  });
+  const safeOpp = (game.opponent || 'game').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 20);
+  return shareOrDownload(text, `試合結果-${game.date}-${safeOpp}.html`, 'text/html', '試合結果');
+}
+
 /* ---------------- 取り込み ---------------- */
 
 export function pickFile(accept = 'application/json,.json') {

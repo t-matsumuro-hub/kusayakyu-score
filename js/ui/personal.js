@@ -21,7 +21,8 @@ import {
 import {
   personalBatting, personalPitching, aggregatePersonal, personalSeasons,
   rates, fmtRate, formatIP, pitchRates, fmtNum, summarizeLine, LEGACY_FIELDS,
-  aggregatePlayerAll, playedIn, personalLinkStatus, gameBatting, gamePitching
+  aggregatePlayerAll, playedIn, personalLinkStatus, gameBatting, gamePitching,
+  matchingTeamGame, reflectsToPersonal, personalSideGames
 } from '../stats.js';
 import { go, rerender, back, backTo } from './router.js';
 
@@ -141,11 +142,14 @@ export const personalScreen = {
 
 function linked() { return state.settings.linkPersonal !== false; }
 
+/** 個人成績に反映するチームの試合（試合詳細で「反映しない」にしたものを除く） */
+function sideGames() { return personalSideGames(state.games); }
+
 /** 選手1人の成績。連携オンならチームの試合と過去成績も合算する。 */
 function playerAgg(playerId, season) {
   if (!linked()) return aggregatePersonal(personalOf(playerId), { season });
   return aggregatePlayerAll(playerId, {
-    games: state.games, personal: state.personal, players: state.players, season
+    games: sideGames(), personal: state.personal, players: state.players, season
   });
 }
 
@@ -153,7 +157,7 @@ function playerAgg(playerId, season) {
 function playerSeasons(p) {
   const set = new Set(personalSeasons(personalOf(p.id)));
   if (linked()) {
-    for (const g of state.games) if (playedIn(g, p.id)) set.add(seasonOf(g.date));
+    for (const g of sideGames()) if (playedIn(g, p.id)) set.add(seasonOf(g.date));
     for (const r of p.legacy || []) set.add(Number(r.season));
   }
   return [...set].filter(Number.isFinite).sort((a, b) => b - a);
@@ -173,8 +177,10 @@ function teamRow(g, playerId) {
   const pitch = gamePitching(g).get(playerId);
   return `<li><button class="row" data-team-game="${esc(g.id)}">
     <div class="row-main">
-      <div class="row-title">${esc(formatDate(g.date))}${g.opponent ? ` vs ${esc(g.opponent)}` : ''}</div>
+      <div class="row-title">${esc(formatDate(g.date))}${g.opponent ? ` vs ${esc(g.opponent)}` : ''}
+        ${reflectsToPersonal(g) ? '' : '<span class="badge badge-warn">反映しない</span>'}</div>
       <div class="row-sub mono">${esc(summarizeLine(bat) || '打席なし')}${pitch && pitch.outs ? ` ／ 投 ${formatIP(pitch.outs)}回` : ''}</div>
+      ${reflectsToPersonal(g) ? '' : '<div class="row-sub">試合詳細で「個人成績に反映しない」にした試合です</div>'}
     </div>
     <span class="badge badge-our">チーム</span>
     <span class="chev">›</span>
@@ -208,7 +214,7 @@ function recordRow(r) {
   const bat = personalBatting(r);
   const pitch = personalPitching(r);
   const src = r.source === 'manual' ? '直接入力' : `${(r.pas || []).length}打席`;
-  const st = linked() ? personalLinkStatus(r, state.games) : null;
+  const st = linked() ? personalLinkStatus(r, sideGames()) : null;
   return `<li><button class="row" data-rec="${esc(r.id)}">
     <div class="row-main">
       <div class="row-title">${esc(formatDate(r.date))}${r.opponent ? ` vs ${esc(r.opponent)}` : ''}
@@ -397,12 +403,21 @@ export const personalGameScreen = {
 /** チームの成績との連携状態。重複が見つかったときは採否を選べる。 */
 function linkCardHTML(rec) {
   if (!linked()) return '';
-  const st = personalLinkStatus(rec, state.games);
+  const st = personalLinkStatus(rec, sideGames());
   const mode = rec.link || 'auto';
   const opt = (v, label) =>
     `<button type="button" data-link="${v}" class="${mode === v ? 'is-on' : ''}">${label}</button>`;
 
   if (!st.duplicate && mode === 'auto') {
+    // 同じ試合がチーム側にあるが、その試合を「個人成績に反映しない」にしている場合
+    const hidden = matchingTeamGame(rec, state.games);
+    if (hidden) {
+      return `<div class="card card-pad small muted">
+        同じ日のチームの試合（vs ${esc(hidden.opponent || '相手')}）は「個人成績に反映しない」設定のため、
+        個人成績ではこの記録を数えます。チームの成績表では、二重にならないようチーム側を数えます。
+        <button class="btn btn-sm btn-block" style="margin-top:8px" data-open-team="${esc(hidden.id)}">チームの試合を開く</button>
+      </div>`;
+    }
     return `<div class="card card-pad small muted">
       この記録はチームの成績にも合算されます。
     </div>`;

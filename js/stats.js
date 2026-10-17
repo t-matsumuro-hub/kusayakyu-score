@@ -276,6 +276,20 @@ export function personalLinkStatus(rec, games) {
   return { counted, duplicate: !!game, game, mode };
 }
 
+/**
+ * チームの試合を個人成績の画面に反映するか（試合ごとに選べる。既定は反映する）。
+ * 反映しない試合は個人成績の画面でだけ外す。チームの成績表では従来どおり数え、
+ * 同じ日の個人記録との重複判定にも使う（チームの成績表で二重に数えないため）。
+ */
+export function reflectsToPersonal(game) {
+  return game.toPersonal !== false;
+}
+
+/** 個人成績の画面で使うチームの試合 */
+export function personalSideGames(games) {
+  return (games || []).filter(reflectsToPersonal);
+}
+
 /** 集計に入れる個人記録だけを返す */
 export function countedPersonal(personal, games) {
   return (personal || []).filter((r) => personalLinkStatus(r, games).counted);

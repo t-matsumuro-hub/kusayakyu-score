@@ -231,6 +231,20 @@ export const gameDetailScreen = {
           : raw(`<ul class="list pa-log" style="max-height:none">${paLogHTML(g)}</ul>`)}
       </div>
 
+      <h2 class="section">個人成績への反映</h2>
+      <div class="card card-pad">
+        <label class="switch">
+          <span style="font-weight:600">この試合を個人成績に反映する</span>
+          <input type="checkbox" data-to-personal ${raw(g.toPersonal !== false ? 'checked' : '')}>
+        </label>
+        <p class="tiny muted" style="margin:6px 0 0">
+          オフにすると、出場した選手の「個人成績」画面でこの試合を数えません。
+          同じ日に個人記録を付けていれば、そちらが数えられます。
+          チームの成績表（成績タブ）では、オフでもこの試合を数えます。
+          ${state.settings.linkPersonal === false ? raw('<br><b>現在は設定タブで「チームの成績と個人記録を合算する」がオフのため、この切り替えは使われません。</b>') : ''}
+        </p>
+      </div>
+
       ${g.memo ? html`<h2 class="section">メモ</h2><div class="card card-pad small">${g.memo}</div>` : ''}
 
       <div class="btn-row" style="margin-top:18px">
@@ -286,6 +300,12 @@ export const gameDetailScreen = {
     on(view, 'click', '[data-export-html]', async () => {
       const r = await exportGameReport(g);
       if (r !== 'cancelled') toast('試合結果を書き出しました');
+    });
+
+    on(view, 'change', '[data-to-personal]', async (e, el) => {
+      g.toPersonal = el.checked;
+      await saveGame(g);
+      toast(el.checked ? 'この試合を個人成績に反映します' : 'この試合を個人成績に反映しません');
     });
 
     on(view, 'click', '[data-finalize]', async () => {

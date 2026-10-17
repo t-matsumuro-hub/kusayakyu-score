@@ -22,8 +22,10 @@ export const RESULTS = [
   { code: 'LO',  label: 'ライナー', short: '直',   kind: 'out',  ab: true,  onBase: false, tb: 0, outs: 1, needsDir: true },
   { code: 'DP',  label: '併殺打',   short: '併',   kind: 'out',  ab: true,  onBase: false, tb: 0, outs: 2, needsDir: true,
     requires: { runner: true, maxOuts: 1 } },
+  { code: 'TP',  label: '三重殺打', short: '三殺', kind: 'out',  ab: true,  onBase: false, tb: 0, outs: 3, needsDir: true,
+    requires: { runners: 2, maxOuts: 0 } },
 
-  { code: 'SH',  label: '犠打',     short: '犠打', kind: 'etc',  ab: false, onBase: false, tb: 0, outs: 1, needsDir: true,
+  { code: 'SH', label: '犠打',     short: '犠打', kind: 'etc',  ab: false, onBase: false, tb: 0, outs: 1, needsDir: true,
     requires: { runner: true, maxOuts: 1 } },
   { code: 'SF',  label: '犠飛',     short: '犠飛', kind: 'etc',  ab: false, onBase: false, tb: 0, outs: 1, needsDir: true,
     requires: { third: true, maxOuts: 1 } },

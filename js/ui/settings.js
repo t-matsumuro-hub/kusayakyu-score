@@ -128,7 +128,7 @@ export default {
       <h2 class="section">このアプリについて</h2>
       <div class="card card-pad">
         <div class="small muted">
-          草野球スコア v2.5.0<br>
+          草野球スコア v2.5.1<br>
           データはこの端末の中だけに保存され、外部には送信されません。<br>
           ホーム画面に追加すれば、通信が無くても動作します。
         </div>

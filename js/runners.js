@@ -128,6 +128,17 @@ export function defaultPlan(result, bases) {
       break;
     }
 
+    case 'TP': {
+      // 打者と走者2人がアウト。封殺される走者（前が詰まっている順）を優先し、
+      // 足りなければ残りの走者を先頭から選ぶ
+      dest.B = OUT;
+      outAt.B = 1;
+      const forcedRunners = [3, 2, 1].filter((b) => on(b) && [1, 2, 3].slice(0, b).every(on));
+      const others = [3, 2, 1].filter((b) => on(b) && !forcedRunners.includes(b));
+      for (const b of [...forcedRunners, ...others].slice(0, 2)) { dest[b] = OUT; outAt[b] = b + 1; }
+      break;
+    }
+
     case 'FC': {
       // 打者は生きて、走者が封殺される
       dest.B = 1;
@@ -188,7 +199,7 @@ export function applyPlan(bases, batterRef, plan) {
  * 失策による得点と併殺打の間の得点には打点が付かない、という規則に合わせる。
  */
 export function defaultRbi(result, runs) {
-  if (result === 'E' || result === 'DP' || result === 'FC') return 0;
+  if (result === 'E' || result === 'DP' || result === 'TP' || result === 'FC') return 0;
   return runs.length;
 }
 
@@ -239,9 +250,10 @@ export function resultBlockReason(result, bases, outs) {
   const req = result && result.requires;
   if (!req) return null;
   if (req.runner && runnerCount(bases) === 0) return '塁上に走者がいません';
+  if (req.runners && runnerCount(bases) < req.runners) return `走者が${req.runners}人以上いないと記録できません`;
   if (req.third && !(bases && bases[3])) return '三塁に走者がいません';
   if (req.maxOuts != null && outs > req.maxOuts) {
-    return `${req.maxOuts + 1}アウトでは記録できません`;
+    return `${req.maxOuts + 1}アウト以上では記録できません`;
   }
   return null;
 }

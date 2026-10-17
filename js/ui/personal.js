@@ -197,7 +197,7 @@ function summaryHTML(label, agg) {
       二${b.H2} 三${b.H3} 本${b.HR} 点${b.RBI} 得点${b.R} 四球${b.BB} 死球${b.HBP} 三振${b.SO}
     </div>
     <div class="small muted mono" style="margin-top:2px">
-      犠打${b.SH} 犠飛${b.SF} 併殺${b.GIDP} 盗塁${b.SB} 盗塁死${b.CS} 失策${b.E}
+      犠打${b.SH} 犠飛${b.SF} 併殺${b.GIDP}${b.GITP ? ` 三重殺${b.GITP}` : ''} 盗塁${b.SB} 盗塁死${b.CS} 失策${b.E}
     </div>
     ${agg.pitchGames ? `<div class="small muted mono" style="margin-top:2px">
       投手 ${agg.pitchGames}登板 ${formatIP(pt.outs)}回 防御率 ${fmtNum(prt.era)} ${pt.W}勝${pt.L}敗
@@ -429,7 +429,7 @@ function manualSummaryHTML(bat) {
     ['打席', bat.PA], ['打数', bat.AB], ['安打', bat.H], ['二塁打', bat.H2],
     ['三塁打', bat.H3], ['本塁打', bat.HR], ['塁打', bat.TB], ['打点', bat.RBI],
     ['四球', bat.BB], ['死球', bat.HBP], ['三振', bat.SO], ['犠打', bat.SH],
-    ['犠飛', bat.SF], ['併殺', bat.GIDP]
+    ['犠飛', bat.SF], ['併殺', bat.GIDP], ['三重殺', bat.GITP]
   ];
   return `<div class="mono small" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px 10px">
     ${rows.map(([k, v]) => `<div><span class="muted">${k}</span> ${v}</div>`).join('')}
@@ -734,7 +734,8 @@ const BAT_COLUMNS = [
   { key: 'SH', label: '犠打' },
   { key: 'SF', label: '犠飛' },
   { key: 'GIDP', label: '併殺' },
-  { key: 'SB', label: '盗塁' },
+  { key: 'GITP', label: '三重殺' },
+  { key: 'SB',label: '盗塁' },
   { key: 'CS', label: '盗塁死' },
   { key: 'E', label: '失策' }
 ];

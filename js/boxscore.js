@@ -38,6 +38,7 @@ export function paNote(pa) {
     case 'FO': return withDir('飛', '飛球');
     case 'LO': return withDir('直', 'ライナー');
     case 'DP': return withDir('併打', '併殺打');
+    case 'TP': return withDir('・三重殺', '三重殺打');
     case 'SH': return withDir('犠打', '犠打');
     case 'SF': return withDir('犠飛', '犠飛');
     case 'E': return withDir('失', '失策');

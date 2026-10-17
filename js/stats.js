@@ -30,7 +30,7 @@ export function errorFielders(game, item) {
 export const BAT_FIELDS = [
   'G', 'PA', 'AB', 'H', 'H1', 'H2', 'H3', 'HR', 'TB',
   'RBI', 'R', 'BB', 'IBB', 'HBP', 'SO', 'SH', 'SF', 'CI',
-  'SB', 'CS', 'GIDP', 'ROE', 'E'
+  'SB', 'CS', 'GIDP', 'GITP', 'ROE', 'E'
 ];
 
 /** 過去成績として手入力してもらう項目（H1 と TB は自動計算するので除く） */
@@ -52,7 +52,8 @@ export const LEGACY_FIELDS = [
   { key: 'SB',  label: '盗塁' },
   { key: 'CS',  label: '盗塁死' },
   { key: 'GIDP', label: '併殺打' },
-  { key: 'E',   label: '失策' }
+  { key: 'GITP', label: '三重殺打' },
+  { key: 'E',  label: '失策' }
 ];
 
 export function emptyBat() {
@@ -89,6 +90,7 @@ function applyPA(acc, pa) {
   if (r.code === 'SF') acc.SF += 1;
   if (r.code === 'CI') acc.CI += 1;
   if (r.code === 'DP') acc.GIDP += 1;
+  if (r.code === 'TP') acc.GITP += 1;
   if (r.code === 'E') acc.ROE += 1;
   acc.RBI += pa.rbi || 0;
 }
